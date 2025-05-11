@@ -1,5 +1,62 @@
 import socket
 import ssl
+from urllib.parse import urlparse
+
+USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+              "(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36")
+
+
+def parse_url(url):
+    """Parse URL into components."""
+    if not url.startswith(('http://', 'https://')):
+        url = 'https://' + url
+
+    parsed_url = urlparse(url)
+    host = parsed_url.netloc
+    path = parsed_url.path if parsed_url.path else "/"
+    query = parsed_url.query
+
+    if query:
+        path = path + "?" + query
+
+    protocol = parsed_url.scheme
+
+    port = 443 if protocol == "https" else 80
+
+    return host, path, protocol, port
+
+
+def create_http_request(host, method="GET", path="/", headers=None, body=None):
+    """
+    Create an HTTP request string.
+    :param host: Hostname or IP address of the server
+    :param method: HTTP method (GET, POST, etc.)
+    :param path: Path of the resource
+    :param headers: Dictionary of HTTP headers
+    :param body: Request body for POST/PUT requests
+    """
+    if headers is None:
+        headers = {}
+
+    headers.update({
+        "Host": host,
+        "User-Agent": USER_AGENT,  # User-Agent header to minimize blocking
+        "Accept": "text/html,application/json,*/*",
+        "Accept-Encoding": "identity",
+        "Connection": "close"
+    })
+
+    request_line = f"{method} {path} HTTP/1.1\r\n"
+    header_lines = ''.join(f"{key}: {value}\r\n" for key, value in headers.items())
+
+    request = request_line + header_lines + "\r\n"
+
+    if body:
+        headers["Content-Length"] = str(len(body))
+        request += body
+
+    return request
+
 
 def send_http_request(host, port, request, is_https=True, timeout=15):
     """
@@ -52,10 +109,15 @@ def send_http_request(host, port, request, is_https=True, timeout=15):
         sock.close()
 
 
-if __name__ == "__main__":
-    host = "jsonplaceholder.typicode.com"
-    port = 443
-    request = "GET /todos HTTP/1.1\r\nHost: jsonplaceholder.typicode.com\r\nConnection: close\r\n\r\n"
+def fetch_url(url):
+    """Fetch the URL and return the response."""
+    host, path, protocol, port = parse_url(url)
+    request = create_http_request(host, path=path)
+    response = send_http_request(host, port, request)
+    return response
 
-    res = send_http_request(host, port, request)
-    print(res)
+
+if __name__ == "__main__":
+    url = "https://jsonplaceholder.typicode.com/posts"
+    response = fetch_url(url)
+    print(response)
