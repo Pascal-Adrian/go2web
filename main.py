@@ -1,6 +1,41 @@
 import socket
 import ssl
 
+USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+              "(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36")
+
+
+def create_http_request(host, method="GET", path="/", headers=None, body=None):
+    """
+    Create an HTTP request string.
+    :param host: Hostname or IP address of the server
+    :param method: HTTP method (GET, POST, etc.)
+    :param path: Path of the resource
+    :param headers: Dictionary of HTTP headers
+    :param body: Request body for POST/PUT requests
+    """
+    if headers is None:
+        headers = {}
+
+    headers.update({
+        "Host": host,
+        "User-Agent": USER_AGENT,  # User-Agent header to minimize blocking
+        "Accept": "text/html,application/json,*/*",
+        "Accept-Encoding": "identity",
+        "Connection": "close"
+    })
+
+    request_line = f"{method} {path} HTTP/1.1\r\n"
+    header_lines = ''.join(f"{key}: {value}\r\n" for key, value in headers.items())
+
+    request = request_line + header_lines + "\r\n"
+
+    if body:
+        request += body
+
+    return request
+
+
 def send_http_request(host, port, request, is_https=True, timeout=15):
     """
     Send an HTTP request and return the response.
@@ -55,7 +90,7 @@ def send_http_request(host, port, request, is_https=True, timeout=15):
 if __name__ == "__main__":
     host = "jsonplaceholder.typicode.com"
     port = 443
-    request = "GET /todos HTTP/1.1\r\nHost: jsonplaceholder.typicode.com\r\nConnection: close\r\n\r\n"
+    request = create_http_request(host, method="GET", path="/posts/1")
 
     res = send_http_request(host, port, request)
     print(res)
