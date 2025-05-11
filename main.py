@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
               "(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36")
 
+
 def parse_url(url):
     """Parse URL into components."""
     if not url.startswith(('http://', 'https://')):
@@ -108,9 +109,15 @@ def send_http_request(host, port, request, is_https=True, timeout=15):
         sock.close()
 
 
-if __name__ == "__main__":
-    url = "https://jsonplaceholder.typicode.com/posts"
+def fetch_url(url):
+    """Fetch the URL and return the response."""
     host, path, protocol, port = parse_url(url)
     request = create_http_request(host, path=path)
-    res = send_http_request(host, port, request)
-    print(res)
+    response = send_http_request(host, port, request)
+    return response
+
+
+if __name__ == "__main__":
+    url = "https://jsonplaceholder.typicode.com/posts"
+    response = fetch_url(url)
+    print(response)
