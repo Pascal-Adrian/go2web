@@ -1,8 +1,28 @@
 import socket
 import ssl
+from urllib.parse import urlparse
 
 USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
               "(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36")
+
+def parse_url(url):
+    """Parse URL into components."""
+    if not url.startswith(('http://', 'https://')):
+        url = 'https://' + url
+
+    parsed_url = urlparse(url)
+    host = parsed_url.netloc
+    path = parsed_url.path if parsed_url.path else "/"
+    query = parsed_url.query
+
+    if query:
+        path = path + "?" + query
+
+    protocol = parsed_url.scheme
+
+    port = 443 if protocol == "https" else 80
+
+    return host, path, protocol, port
 
 
 def create_http_request(host, method="GET", path="/", headers=None, body=None):
@@ -89,9 +109,8 @@ def send_http_request(host, port, request, is_https=True, timeout=15):
 
 
 if __name__ == "__main__":
-    host = "jsonplaceholder.typicode.com"
-    port = 443
-    request = create_http_request(host, method="GET", path="/posts/1")
-
+    url = "https://jsonplaceholder.typicode.com/posts"
+    host, path, protocol, port = parse_url(url)
+    request = create_http_request(host, path=path)
     res = send_http_request(host, port, request)
     print(res)
