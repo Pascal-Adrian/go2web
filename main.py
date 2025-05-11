@@ -31,7 +31,13 @@ def send_http_request(host, port, request, timeout=15):
 
         response = b''.join(response_chunks)
 
-        return response.decode('utf-8', errors='replace')
+        for encoding in ['utf-8', 'latin-1', 'ascii']:
+            try:
+                return response.decode(encoding, errors='replace')
+            except UnicodeDecodeError:
+                continue
+
+        return response.decode('latin-1', errors='replace')
 
     except Exception as e:
         return print(f"Error in send_http_request: {str(e)}")
