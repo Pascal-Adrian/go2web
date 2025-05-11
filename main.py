@@ -31,6 +31,7 @@ def create_http_request(host, method="GET", path="/", headers=None, body=None):
     request = request_line + header_lines + "\r\n"
 
     if body:
+        headers["Content-Length"] = str(len(body))
         request += body
 
     return request
