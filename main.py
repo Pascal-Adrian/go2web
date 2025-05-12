@@ -5,6 +5,7 @@ import ssl
 import time
 from urllib.parse import urlparse
 import os
+from bs4 import BeautifulSoup
 
 USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
               "(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36")
@@ -299,7 +300,96 @@ def fetch_url(url, max_redirects=5, cache=True):
             return status_code, headers, body
 
 
+def extract_seo_information(html_body):
+    """
+    Extract SEO information from the HTML body.
+    :param html_body: HTML body of the response
+    :return:
+    """
+
+    seo_info = {
+        "title": None,
+        "description": None,
+        "keywords": None,
+        "h1_tags": [],
+        "canonical": None,
+        "robots": None,
+        "og_title": None,
+        "og_description": None,
+        "og_image": None,
+        "twitter_card": None,
+        "twitter_title": None,
+        "twitter_description": None,
+        "twitter_image": None
+    }
+
+    try:
+        soup = BeautifulSoup(html_body, 'html.parser')
+
+        title_tag = soup.find('title')
+        if title_tag:
+            seo_info["title"] = title_tag.get_text(strip=True)
+
+        for meta_tag in soup.find_all('meta'):
+            name = meta_tag.get('name', '').lower()
+            property = meta_tag.get('property', '').lower()
+            content = meta_tag.get('content', '').strip()
+
+            if name in seo_info.keys():
+                seo_info[name] = content
+            elif property in seo_info.keys():
+                seo_info[property] = content
+
+        for h1_tag in soup.find_all('h1'):
+            seo_info["h1_tags"].append(h1_tag.get_text(strip=True))
+
+        canonical_tag = soup.find('link', rel='canonical')
+        if canonical_tag:
+            seo_info["canonical"] = canonical_tag.get('href', '').strip()
+
+        return seo_info
+
+    except Exception as e:
+        print(f"Error parsing HTML: {str(e)}")
+        return seo_info
+
+
+def parse_html_body(html_body):
+    """
+    Parse the HTML body and extract useful information.
+    :param html_body: HTML body of the response
+    :return: Parsed HTML body
+    """
+    try:
+        soup = BeautifulSoup(html_body, 'html.parser')
+
+        for script in soup(['script', 'style']):
+            script.extract()
+
+        text = soup.find('body').get_text()
+
+        lines = (line.strip() for line in text.splitlines())
+
+        chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+
+        text = '\n'.join(chunk for chunk in chunks if chunk)
+
+        return text
+
+    except Exception as e:
+        print(f"Error parsing HTML body: {str(e)}")
+        return html_body
+
+
 if __name__ == "__main__":
     url = "https://jsonplaceholder.typicode.com/guide"
     status_code, headers, body = fetch_url(url)
+    seo_info = extract_seo_information(body)
+    print("SEO Information:")
+    print(json.dumps(seo_info, indent=4))
+    print("=" * 50)
+    print("Parsed HTML Body:")
+    parsed_body = parse_html_body(body)
+    print(parsed_body)
+    print("=" * 50)
     print(body)
