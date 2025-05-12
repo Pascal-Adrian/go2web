@@ -12,6 +12,7 @@ USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
 CACHE_DIR = ".cache"
 CACHE_EXPIRATION = 60 * 60
 
+
 def send_http_request(host, port, request, is_https=True, timeout=15):
     """
     Send an HTTP request and return the response.
@@ -381,15 +382,23 @@ def parse_html_body(html_body):
         return html_body
 
 
+def parse_json_body(json_body):
+    """
+    Parse the JSON body and extract useful information.
+    :param json_body: JSON body of the response
+    :return: Parsed JSON body
+    """
+    try:
+        parsed_json = json.loads(json_body)
+        return json.dumps(parsed_json, indent=4)
+    except json.JSONDecodeError as e:
+        print(f"Error parsing JSON body: {str(e)}")
+        return json_body
+
+
 if __name__ == "__main__":
-    url = "https://jsonplaceholder.typicode.com/guide"
+    url = "https://jsonplaceholder.typicode.com/todos/1"
     status_code, headers, body = fetch_url(url)
-    seo_info = extract_seo_information(body)
-    print("SEO Information:")
-    print(json.dumps(seo_info, indent=4))
-    print("=" * 50)
-    print("Parsed HTML Body:")
-    parsed_body = parse_html_body(body)
+    parsed_body = parse_json_body(body)
     print(parsed_body)
-    print("=" * 50)
-    print(body)
+
