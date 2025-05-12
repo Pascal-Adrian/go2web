@@ -109,17 +109,6 @@ def parse_url(url):
     return host, path, protocol, port
 
 
-def fetch_url(url):
-    """
-    Perform a GET request to the specified URL.
-    :param url: URL to fetch
-    """
-    host, path, protocol, port = parse_url(url)
-    request = create_http_request(host, path=path)
-    response = send_http_request(host, port, request)
-    return response
-
-
 def process_headers(headers):
     """
     Process HTTP headers into a dictionary.
@@ -192,6 +181,19 @@ def parse_response(response):
     status_code = headers.get("Status", "").split(" ")[0]
     if "Transfer-Encoding" in headers and headers["Transfer-Encoding"].lower() == "chunked":
         body = decode_chunked_response(body)
+
+    return status_code, headers, body
+
+
+def fetch_url(url):
+    """
+    Perform a GET request to the specified URL.
+    :param url: URL to fetch
+    """
+    host, path, protocol, port = parse_url(url)
+    request = create_http_request(host, path=path)
+    response = send_http_request(host, port, request)
+    status_code, headers, body = parse_response(response)
 
     return status_code, headers, body
 
