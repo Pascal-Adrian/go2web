@@ -184,22 +184,48 @@ def parse_response(response):
 
     return status_code, headers, body
 
-
-def fetch_url(url):
+def fetch_url(url, max_redirects=5):
     """
     Perform a GET request to the specified URL.
     :param url: URL to fetch
+    :param max_redirects: Maximum number of redirects to follow
+    :param timeout: Timeout for the connection in seconds
     """
-    host, path, protocol, port = parse_url(url)
-    request = create_http_request(host, path=path)
-    response = send_http_request(host, port, request)
-    status_code, headers, body = parse_response(response)
+    redirect_count = 0
+    visited_urls = {url}
 
-    return status_code, headers, body
+    while redirect_count < max_redirects:
+        host, path, protocol, port = parse_url(url)
+        request = create_http_request(host, path=path)
+        response = send_http_request(host, port, request)
+        status_code, headers, body = parse_response(response)
+
+        if status_code.startswith("3"):
+            location = headers.get("Location")
+            if not location:
+                return status_code, headers, body
+
+            if location.startswith("http"):
+                url = location
+            elif location.startswith("//"):
+                url = protocol + ":" + location
+            elif location.startswith("/"):
+                url = protocol + "://" + host + location
+            else:
+                url = protocol + "://" + host + "/" + location
+
+            if url in visited_urls:
+                print(f"Redirect loop detected: {url}")
+                break
+
+            print(f"Redirecting to: {url} ...")
+            visited_urls.add(url)
+            redirect_count += 1
+        else:
+            return status_code, headers, body
 
 
 if __name__ == "__main__":
-    url = "https://en.wikipedia.org/wiki/Main_Page"
-    response = fetch_url(url)
-    status_code, headers, body = parse_response(response)
+    url = "https://jsonplaceholder.typicode.com/guide"
+    status_code, headers, body = fetch_url(url)
     print(body)
