@@ -142,44 +142,44 @@ def process_headers(headers):
     return header_dict
 
 
-def decode_chunked_response(chunked_body):
+def decode_chunked_response(body):
     """
     Decode chunked HTTP response body (after headers have been removed).
-    :param chunked_body: Chunked HTTP response body (without headers)
+    :param body: Chunked HTTP response body (without headers)
     :return: Decoded response body
     """
-    decoded_response = []
-    chunk_start = 0
+    decoded = ""
+    index = 0
 
-    while chunk_start < len(chunked_body):
-        chunk_size_end = chunked_body.find("\r\n", chunk_start)
+    while index < len(body):
+        chunk_size_end = body.find("\r\n", index)
         if chunk_size_end == -1:
+            decoded += body[index:]
             break
 
-        chunk_size_line = chunked_body[chunk_start:chunk_size_end].strip()
-        if ";" in chunk_size_line:
-            chunk_size_line = chunk_size_line.split(";", 1)[0]
-
         try:
+            chunk_size_line = body[index:chunk_size_end].strip()
+            if ";" in chunk_size_line:
+                chunk_size_line = chunk_size_line.split(";")[0]
             chunk_size = int(chunk_size_line, 16)
-        except ValueError:
+        except (ValueError, IndexError):
+            decoded += body[index:]
             break
 
         if chunk_size == 0:
             break
 
-        chunk_data_start = chunk_size_end + 2
-        chunk_data_end = chunk_data_start + chunk_size
+        chunk_start = chunk_size_end + 2
+        chunk_end = chunk_start + chunk_size
 
-        if chunk_data_end > len(chunked_body):
+        if chunk_end <= len(body):
+            decoded += body[chunk_start:chunk_end]
+            index = chunk_end + 2
+        else:
+            decoded += body[chunk_start:]
             break
 
-        chunk_data = chunked_body[chunk_data_start:chunk_data_end]
-        decoded_response.append(chunk_data)
-
-        chunk_start = chunk_data_end + 2
-
-    return ''.join(decoded_response)
+    return decoded
 
 
 def parse_response(response):
