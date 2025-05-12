@@ -120,7 +120,42 @@ def fetch_url(url):
     return response
 
 
+def process_headers(headers):
+    """
+    Process HTTP headers into a dictionary.
+    :param headers: HTTP headers string
+    """
+    header_lines = headers.split("\r\n")
+    header_dict = {}
+
+    for line in header_lines:
+        if ":" in line:
+            key, value = line.split(":", 1)
+            header_dict[key.strip()] = value.strip() if value else ""
+        elif line.startswith("HTTP/"):
+            parts = line.split(" ", 2)
+            if len(parts) > 2:
+                header_dict["Status"] = parts[1] + " " + parts[2]
+            else:
+                header_dict["Status"] = parts[1]
+
+    return header_dict
+
+
+def parse_response(response):
+    """
+    Parse the HTTP response.
+    :param response: HTTP response string
+    """
+    headers, body = response.split("\r\n\r\n", 1)
+    headers = process_headers(headers)
+    status_code = headers.get("Status", "").split(" ")[0]
+
+    return status_code, headers, body
+
+
 if __name__ == "__main__":
-    url = "https://jsonplaceholder.typicode.com/posts"
+    url = "https://jsonplaceholder.typicode.com/guide"
     response = fetch_url(url)
-    print(response)
+    status_code, headers, body = parse_response(response)
+    print(body)
