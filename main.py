@@ -1,9 +1,14 @@
+import json
+import re
 import socket
 import ssl
+import time
 from urllib.parse import urlparse
+import os
 
 USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
               "(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36")
+CACHE_DIR = ".cache"
 
 
 def send_http_request(host, port, request, is_https=True, timeout=15):
@@ -184,44 +189,108 @@ def parse_response(response):
 
     return status_code, headers, body
 
-def fetch_url(url, max_redirects=5):
+
+def cache_response(url, status_code, headers, body):
+    if not os.path.exists(CACHE_DIR):
+        os.makedirs(CACHE_DIR)
+
+    cache_key = re.sub(r'[^a-zA-Z0-9]', '_', url)
+
+    if len(cache_key) > 255:
+        cache_key = cache_key[:255]
+
+    cache_file = os.path.join(CACHE_DIR, cache_key)
+
+    cache_data = {
+        "timestamp": time.time(),
+        "status_code": status_code,
+        "headers": headers,
+        "body": body
+    }
+
+    try:
+        with open(cache_file, 'w', encoding='utf-8') as f:
+            json.dump(cache_data, f, ensure_ascii=False)
+    except Exception as e:
+        print(f"Error writing to cache file {cache_file}: {str(e)}")
+
+
+def get_cached_response(url):
+    """
+    Retrieve cached response for the given URL.
+    :param url: URL to search in the cache
+    :return: status_code, headers, body if found, else None
+    """
+    if not os.path.exists(CACHE_DIR):
+        return None
+
+    cache_key = re.sub(r'[^a-zA-Z0-9]', '_', url)
+
+    if len(cache_key) > 255:
+        cache_key = cache_key[:255]
+
+    cache_file = os.path.join(CACHE_DIR, cache_key)
+
+    if not os.path.exists(cache_file):
+        return None
+
+    try:
+        with open(cache_file, 'r', encoding='utf-8') as f:
+            cache_data = json.load(f)
+            return cache_data
+    except Exception as e:
+        print(f"Error reading from cache file {cache_file}: {str(e)}")
+        return None
+
+
+def fetch_url(url, max_redirects=5, cache=True):
     """
     Perform a GET request to the specified URL.
     :param url: URL to fetch
     :param max_redirects: Maximum number of redirects to follow
-    :param timeout: Timeout for the connection in seconds
+    :param cache: Boolean indicating if caching is enabled
     """
     redirect_count = 0
     visited_urls = {url}
+    redirect_url = url
+
+    if cache:
+        cached_response = get_cached_response(url)
+        if cached_response:
+            print(f"Using cached response for {url}...")
+            return cached_response["status_code"], cached_response["headers"], cached_response["body"]
 
     while redirect_count < max_redirects:
-        host, path, protocol, port = parse_url(url)
+        host, path, protocol, port = parse_url(redirect_url)
         request = create_http_request(host, path=path)
         response = send_http_request(host, port, request)
         status_code, headers, body = parse_response(response)
 
         if status_code.startswith("3"):
             location = headers.get("Location")
+
             if not location:
                 return status_code, headers, body
 
             if location.startswith("http"):
-                url = location
+                redirect_url = location
             elif location.startswith("//"):
-                url = protocol + ":" + location
+                redirect_url = protocol + ":" + location
             elif location.startswith("/"):
-                url = protocol + "://" + host + location
+                redirect_url = protocol + "://" + host + location
             else:
-                url = protocol + "://" + host + "/" + location
+                redirect_url = protocol + "://" + host + "/" + location
 
-            if url in visited_urls:
-                print(f"Redirect loop detected: {url}")
+            if redirect_url in visited_urls:
+                print(f"Redirect loop detected: {url} -> {redirect_url}")
                 break
 
-            print(f"Redirecting to: {url} ...")
-            visited_urls.add(url)
+            print(f"Redirecting to: {redirect_url} ...")
+            visited_urls.add(redirect_url)
             redirect_count += 1
         else:
+            if cache:
+                cache_response(url, status_code, headers, body)
             return status_code, headers, body
 
 
