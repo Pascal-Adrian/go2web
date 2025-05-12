@@ -6,58 +6,6 @@ USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
               "(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36")
 
 
-def parse_url(url):
-    """Parse URL into components."""
-    if not url.startswith(('http://', 'https://')):
-        url = 'https://' + url
-
-    parsed_url = urlparse(url)
-    host = parsed_url.netloc
-    path = parsed_url.path if parsed_url.path else "/"
-    query = parsed_url.query
-
-    if query:
-        path = path + "?" + query
-
-    protocol = parsed_url.scheme
-
-    port = 443 if protocol == "https" else 80
-
-    return host, path, protocol, port
-
-
-def create_http_request(host, method="GET", path="/", headers=None, body=None):
-    """
-    Create an HTTP request string.
-    :param host: Hostname or IP address of the server
-    :param method: HTTP method (GET, POST, etc.)
-    :param path: Path of the resource
-    :param headers: Dictionary of HTTP headers
-    :param body: Request body for POST/PUT requests
-    """
-    if headers is None:
-        headers = {}
-
-    headers.update({
-        "Host": host,
-        "User-Agent": USER_AGENT,  # User-Agent header to minimize blocking
-        "Accept": "text/html,application/json,*/*",
-        "Accept-Encoding": "identity",
-        "Connection": "close"
-    })
-
-    request_line = f"{method} {path} HTTP/1.1\r\n"
-    header_lines = ''.join(f"{key}: {value}\r\n" for key, value in headers.items())
-
-    request = request_line + header_lines + "\r\n"
-
-    if body:
-        headers["Content-Length"] = str(len(body))
-        request += body
-
-    return request
-
-
 def send_http_request(host, port, request, is_https=True, timeout=15):
     """
     Send an HTTP request and return the response.
@@ -109,15 +57,147 @@ def send_http_request(host, port, request, is_https=True, timeout=15):
         sock.close()
 
 
+def create_http_request(host, method="GET", path="/", headers=None, body=None):
+    """
+    Create an HTTP request string.
+    :param host: Hostname or IP address of the server
+    :param method: HTTP method (GET, POST, etc.)
+    :param path: Path of the resource
+    :param headers: Dictionary of HTTP headers
+    :param body: Request body for POST/PUT requests
+    """
+    if headers is None:
+        headers = {}
+
+    headers.update({
+        "Host": host,
+        "User-Agent": USER_AGENT,  # User-Agent header to minimize blocking
+        "Accept": "text/html,application/json,*/*",
+        "Accept-Encoding": "identity",
+        "Connection": "close"
+    })
+
+    request_line = f"{method} {path} HTTP/1.1\r\n"
+    header_lines = ''.join(f"{key}: {value}\r\n" for key, value in headers.items())
+
+    request = request_line + header_lines + "\r\n"
+
+    if body:
+        headers["Content-Length"] = str(len(body))
+        request += body
+
+    return request
+
+
+def parse_url(url):
+    """Parse URL into components."""
+    if not url.startswith(('http://', 'https://')):
+        url = 'https://' + url
+
+    parsed_url = urlparse(url)
+    host = parsed_url.netloc
+    path = parsed_url.path if parsed_url.path else "/"
+    query = parsed_url.query
+
+    if query:
+        path = path + "?" + query
+
+    protocol = parsed_url.scheme
+
+    port = 443 if protocol == "https" else 80
+
+    return host, path, protocol, port
+
+
 def fetch_url(url):
-    """Fetch the URL and return the response."""
+    """
+    Perform a GET request to the specified URL.
+    :param url: URL to fetch
+    """
     host, path, protocol, port = parse_url(url)
     request = create_http_request(host, path=path)
     response = send_http_request(host, port, request)
     return response
 
 
+def process_headers(headers):
+    """
+    Process HTTP headers into a dictionary.
+    :param headers: HTTP headers string
+    """
+    header_lines = headers.split("\r\n")
+    header_dict = {}
+
+    for line in header_lines:
+        if ":" in line:
+            key, value = line.split(":", 1)
+            header_dict[key.strip()] = value.strip() if value else ""
+        elif line.startswith("HTTP/"):
+            parts = line.split(" ", 2)
+            if len(parts) > 2:
+                header_dict["Status"] = parts[1] + " " + parts[2]
+            else:
+                header_dict["Status"] = parts[1]
+
+    return header_dict
+
+
+def decode_chunked_response(chunked_body):
+    """
+    Decode chunked HTTP response body (after headers have been removed).
+    :param chunked_body: Chunked HTTP response body (without headers)
+    :return: Decoded response body
+    """
+    decoded_response = []
+    chunk_start = 0
+
+    while chunk_start < len(chunked_body):
+        chunk_size_end = chunked_body.find("\r\n", chunk_start)
+        if chunk_size_end == -1:
+            break
+
+        chunk_size_line = chunked_body[chunk_start:chunk_size_end].strip()
+        if ";" in chunk_size_line:
+            chunk_size_line = chunk_size_line.split(";", 1)[0]
+
+        try:
+            chunk_size = int(chunk_size_line, 16)
+        except ValueError:
+            break
+
+        if chunk_size == 0:
+            break
+
+        chunk_data_start = chunk_size_end + 2
+        chunk_data_end = chunk_data_start + chunk_size
+
+        if chunk_data_end > len(chunked_body):
+            break
+
+        chunk_data = chunked_body[chunk_data_start:chunk_data_end]
+        decoded_response.append(chunk_data)
+
+        chunk_start = chunk_data_end + 2
+
+    return ''.join(decoded_response)
+
+
+def parse_response(response):
+    """
+    Parse the HTTP response.
+    :param response: HTTP response string
+    """
+    headers, body = response.split("\r\n\r\n", 1)
+    headers = process_headers(headers)
+    status_code = headers.get("Status", "").split(" ")[0]
+    if "Transfer-Encoding" in headers and headers["Transfer-Encoding"].lower() == "chunked":
+        body = decode_chunked_response(body)
+
+    return status_code, headers, body
+
+
 if __name__ == "__main__":
-    url = "https://jsonplaceholder.typicode.com/posts"
+    url = "https://en.wikipedia.org/wiki/Main_Page"
     response = fetch_url(url)
-    print(response)
+    status_code, headers, body = parse_response(response)
+    print(body)
