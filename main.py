@@ -142,6 +142,46 @@ def process_headers(headers):
     return header_dict
 
 
+def decode_chunked_response(chunked_body):
+    """
+    Decode chunked HTTP response body (after headers have been removed).
+    :param chunked_body: Chunked HTTP response body (without headers)
+    :return: Decoded response body
+    """
+    decoded_response = []
+    chunk_start = 0
+
+    while chunk_start < len(chunked_body):
+        chunk_size_end = chunked_body.find("\r\n", chunk_start)
+        if chunk_size_end == -1:
+            break
+
+        chunk_size_line = chunked_body[chunk_start:chunk_size_end].strip()
+        if ";" in chunk_size_line:
+            chunk_size_line = chunk_size_line.split(";", 1)[0]
+
+        try:
+            chunk_size = int(chunk_size_line, 16)
+        except ValueError:
+            break
+
+        if chunk_size == 0:
+            break
+
+        chunk_data_start = chunk_size_end + 2
+        chunk_data_end = chunk_data_start + chunk_size
+
+        if chunk_data_end > len(chunked_body):
+            break
+
+        chunk_data = chunked_body[chunk_data_start:chunk_data_end]
+        decoded_response.append(chunk_data)
+
+        chunk_start = chunk_data_end + 2
+
+    return ''.join(decoded_response)
+
+
 def parse_response(response):
     """
     Parse the HTTP response.
@@ -150,12 +190,14 @@ def parse_response(response):
     headers, body = response.split("\r\n\r\n", 1)
     headers = process_headers(headers)
     status_code = headers.get("Status", "").split(" ")[0]
+    if "Transfer-Encoding" in headers and headers["Transfer-Encoding"].lower() == "chunked":
+        body = decode_chunked_response(body)
 
     return status_code, headers, body
 
 
 if __name__ == "__main__":
-    url = "https://jsonplaceholder.typicode.com/guide"
+    url = "https://en.wikipedia.org/wiki/Main_Page"
     response = fetch_url(url)
     status_code, headers, body = parse_response(response)
     print(body)
