@@ -6,6 +6,7 @@ import time
 from urllib.parse import urlparse, quote_plus, unquote
 import os
 from bs4 import BeautifulSoup
+import argparse
 
 USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
               "(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36")
@@ -550,6 +551,27 @@ def handle_search_command(query):
         print("No results found.")
 
 
+def main():
+    """
+    Main function to handle command line arguments and execute the appropriate command.
+    :return:
+    """
+    parser = argparse.ArgumentParser(description="go2web - A CLI tool for HTTP requests and web searches")
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("-u", "--url", help="Make an HTTP request to the specified URL and print the response")
+    group.add_argument("-s", "--search", help="Search the term using DuckDuckGo and print top 10 results", nargs='+')
+
+    args = parser.parse_args()
+
+    if args.url:
+        handle_url_command(args.url)
+    elif args.search:
+        search_term = " ".join(args.search)
+        handle_search_command(search_term)
+    else:
+        parser.print_help()
+
+
 if __name__ == "__main__":
-    handle_url_command("https://jsonplaceholder.typicode.com/todos/")
-    handle_search_command("utm")
+    main()
