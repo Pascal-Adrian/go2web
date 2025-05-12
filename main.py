@@ -9,7 +9,7 @@ import os
 USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
               "(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36")
 CACHE_DIR = ".cache"
-
+CACHE_EXPIRATION = 60 * 60
 
 def send_http_request(host, port, request, is_https=True, timeout=15):
     """
@@ -237,6 +237,11 @@ def get_cached_response(url):
     try:
         with open(cache_file, 'r', encoding='utf-8') as f:
             cache_data = json.load(f)
+
+            if time.time() - cache_data["timestamp"] > CACHE_EXPIRATION:
+                os.remove(cache_file)
+                return None
+
             return cache_data
     except Exception as e:
         print(f"Error reading from cache file {cache_file}: {str(e)}")
