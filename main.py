@@ -528,5 +528,28 @@ def handle_url_command(url):
         print(e)
 
 
+def handle_search_command(query):
+    """
+    Handle the search command and fetch results from DuckDuckGo.
+    :param query: Search query
+    :return: None
+    """
+
+    results = search_duckduckgo(query)
+
+    if results:
+        print("=" * 50)
+        print("Search Results:")
+        print("=" * 50)
+        for i, result in enumerate(results, 1):
+            print(f"{i}. {result['title']}")
+            print(f"   URL: {result['url']}")
+            print("-" * 50)
+        print("=" * 50)
+    else:
+        print("No results found.")
+
+
 if __name__ == "__main__":
     handle_url_command("https://jsonplaceholder.typicode.com/todos/")
+    handle_search_command("utm")
