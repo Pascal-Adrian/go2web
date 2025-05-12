@@ -354,11 +354,42 @@ def extract_seo_information(html_body):
         return seo_info
 
 
+def parse_html_body(html_body):
+    """
+    Parse the HTML body and extract useful information.
+    :param html_body: HTML body of the response
+    :return: Parsed HTML body
+    """
+    try:
+        soup = BeautifulSoup(html_body, 'html.parser')
+
+        for script in soup(['script', 'style']):
+            script.extract()
+
+        text = soup.find('body').get_text()
+
+        lines = (line.strip() for line in text.splitlines())
+
+        chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+
+        text = '\n'.join(chunk for chunk in chunks if chunk)
+
+        return text
+
+    except Exception as e:
+        print(f"Error parsing HTML body: {str(e)}")
+        return html_body
+
+
 if __name__ == "__main__":
     url = "https://jsonplaceholder.typicode.com/guide"
     status_code, headers, body = fetch_url(url)
     seo_info = extract_seo_information(body)
     print("SEO Information:")
     print(json.dumps(seo_info, indent=4))
-    print("="*50)
+    print("=" * 50)
+    print("Parsed HTML Body:")
+    parsed_body = parse_html_body(body)
+    print(parsed_body)
+    print("=" * 50)
     print(body)
