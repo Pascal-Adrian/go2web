@@ -3,7 +3,7 @@ import re
 import socket
 import ssl
 import time
-from urllib.parse import urlparse
+from urllib.parse import urlparse, quote_plus, unquote
 import os
 from bs4 import BeautifulSoup
 
@@ -396,9 +396,78 @@ def parse_json_body(json_body):
         return json_body
 
 
+def search_duckduckgo(query, max_results=10):
+    """
+    Search DuckDuckGo for a given query and return the results.
+    :param query: Search query
+    :param max_results: Maximum number of results to return
+    :return: List of search results
+    """
+
+    encoded_query = quote_plus(query)
+
+    search_url = f"https://duckduckgo.com/html/?q={encoded_query}"
+
+    status_code, headers, body = fetch_url(search_url)
+
+    if not body:
+        print("Error fetching search results")
+        return []
+
+    if not status_code.startswith("2"):
+        print(f"Error: Received status code {status_code}")
+        return []
+
+    try:
+        soup = BeautifulSoup(body, 'html.parser')
+
+        results = []
+
+        results_containers = soup.select('.results_links') or soup.select('.result')
+
+        for container in results_containers:
+            title_elem = (container.select_one('.result__title a') or
+                     container.select_one('.result__a') or
+                     container.select_one('a.result__url') or
+                     container.select_one('h2 a'))
+
+            if title_elem:
+                title = title_elem.get_text().strip()
+                href = title_elem.get('href', '')
+
+                # Extract URL from DuckDuckGo redirect format
+                if href:
+                    # Try to find the URL in the "uddg" parameter
+                    match = re.search(r'uddg=([^&]+)', href)
+                    if match:
+                        url = unquote(match.group(1))
+                        results.append({'title': title, 'url': url})
+                    else:
+                        # Use the href directly if it looks like a URL
+                        if href.startswith(('http://', 'https://')):
+                            results.append({'title': title, 'url': href})
+
+        if not results:
+            for link in soup.find_all('a'):
+                href = link.get('href', '')
+                if 'uddg=' in href:
+                    title = link.get_text().strip()
+                    match = re.search(r'uddg=([^&]+)', href)
+                    if match and title:
+                        url = unquote(match.group(1))
+                        results.append({'title': title, 'url': url})
+
+        print(f"Found {len(results)} results")
+
+        return results[:max_results]
+
+    except Exception as e:
+        print(f"Error parsing search results: {str(e)}")
+        return []
+
+
 if __name__ == "__main__":
-    url = "https://jsonplaceholder.typicode.com/todos/1"
-    status_code, headers, body = fetch_url(url)
-    parsed_body = parse_json_body(body)
-    print(parsed_body)
+    results = search_duckduckgo("utm")
+    for result in results:
+        print(f"Title: {result['title']}, URL: {result['url']}")
 
