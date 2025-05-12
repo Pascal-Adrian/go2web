@@ -466,8 +466,67 @@ def search_duckduckgo(query, max_results=10):
         return []
 
 
-if __name__ == "__main__":
-    results = search_duckduckgo("utm")
-    for result in results:
-        print(f"Title: {result['title']}, URL: {result['url']}")
+def handle_url_command(url):
+    """
+    Handle the URL command and fetch the URL.
+    :param url: URL to fetch
+    :return: None
+    """
 
+    try:
+        status_code, headers, body = fetch_url(url)
+        if status_code.startswith("2"):
+            content_type = headers.get("Content-Type", "")
+            if "application/json" in content_type:
+                parsed_body = parse_json_body(body)
+                print("=" * 50)
+                print("JSON Response:")
+                print("=" * 50)
+                print(parsed_body)
+                print("=" * 50)
+            elif "text/html" in content_type:
+                parsed_body = parse_html_body(body)
+                seo_info = extract_seo_information(body)
+                print("=" * 50)
+                print("HTML Response:")
+                print("=" * 50)
+                print("\nSEO Information:")
+                print("-" * 50)
+                print(f"Title: {seo_info['title']}")
+                print(f"Description: {seo_info['description']}")
+                print(f"Keywords: {seo_info['keywords']}")
+                print(f"Canonical: {seo_info['canonical']}")
+                print(f"Robots: {seo_info['robots']}")
+
+                print("\nOpen Graph:")
+                print(f"OG Title: {seo_info['og_title']}")
+                print(f"OG Description: {seo_info['og_description']}")
+                print(f"OG Image: {seo_info['og_image']}")
+
+                print("\nTwitter Card:")
+                print(f"Twitter Card: {seo_info['twitter_card']}")
+                print(f"Twitter Title: {seo_info['twitter_title']}")
+                print(f"Twitter Description: {seo_info['twitter_description']}")
+                print(f"Twitter Image: {seo_info['twitter_image']}")
+
+                print("\nH1 Tags:")
+                for i, h1 in enumerate(seo_info.get('h1_tags', []), 1):
+                    print(f"{i}. {h1}")
+
+                print("-" * 50)
+                print("\nParsed Body:")
+                print("-" * 50)
+                print(parsed_body)
+                print("=" * 50)
+            else:
+                print(f"Response Body:\n{body}")
+
+        else:
+            print(f"Error fetching URL: {status_code}")
+
+    except Exception as e:
+        print(e)
+
+
+if __name__ == "__main__":
+    handle_url_command("https://jsonplaceholder.typicode.com/todos/")
