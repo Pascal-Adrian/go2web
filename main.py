@@ -447,6 +447,18 @@ def search_duckduckgo(query, max_results=10):
                         if href.startswith(('http://', 'https://')):
                             results.append({'title': title, 'url': href})
 
+        if not results:
+            for link in soup.find_all('a'):
+                href = link.get('href', '')
+                if 'uddg=' in href:
+                    title = link.get_text().strip()
+                    match = re.search(r'uddg=([^&]+)', href)
+                    if match and title:
+                        url = unquote(match.group(1))
+                        results.append({'title': title, 'url': url})
+
+        print(f"Found {len(results)} results")
+
         return results[:max_results]
 
     except Exception as e:
