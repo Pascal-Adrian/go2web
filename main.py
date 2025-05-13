@@ -299,7 +299,13 @@ def fetch_url(url, max_redirects=10, cache=True):
         else:
             if cache:
                 cache_response(url, status_code, headers, body)
+
             return status_code, headers, body
+
+    if redirect_count >= max_redirects:
+        print(f"Max redirects reached for {url}")
+
+    return status_code, headers, body
 
 
 def extract_seo_information(html_body):
