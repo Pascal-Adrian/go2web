@@ -251,7 +251,7 @@ def get_cached_response(url):
         return None
 
 
-def fetch_url(url, max_redirects=5, cache=True):
+def fetch_url(url, max_redirects=10, cache=True):
     """
     Perform a GET request to the specified URL.
     :param url: URL to fetch
