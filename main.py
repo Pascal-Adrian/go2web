@@ -262,6 +262,8 @@ def fetch_url(url, max_redirects=10, cache=True):
     visited_urls = {url}
     redirect_url = url
 
+    status_code, headers, body = None, None, None
+
     if cache:
         cached_response = get_cached_response(url)
         if cached_response:
