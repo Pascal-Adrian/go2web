@@ -251,7 +251,7 @@ def get_cached_response(url):
         return None
 
 
-def fetch_url(url, max_redirects=5, cache=True):
+def fetch_url(url, max_redirects=10, cache=True):
     """
     Perform a GET request to the specified URL.
     :param url: URL to fetch
@@ -261,6 +261,8 @@ def fetch_url(url, max_redirects=5, cache=True):
     redirect_count = 0
     visited_urls = {url}
     redirect_url = url
+
+    status_code, headers, body = None, None, None
 
     if cache:
         cached_response = get_cached_response(url)
@@ -299,7 +301,13 @@ def fetch_url(url, max_redirects=5, cache=True):
         else:
             if cache:
                 cache_response(url, status_code, headers, body)
+
             return status_code, headers, body
+
+    if redirect_count >= max_redirects:
+        print(f"Max redirects reached for {url}")
+
+    return status_code, headers, body
 
 
 def extract_seo_information(html_body):
